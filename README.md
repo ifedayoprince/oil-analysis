@@ -5,17 +5,10 @@ This project analyzes crude petroleum export data for European countries, genera
 ## Requirements
 
 - Python 3.8 or higher
-- Conda package manager
 
 ## Setup
 
-1. Create a new conda environment:
-```bash
-conda create -n oil-analysis python=3.8
-conda activate oil-analysis
-```
-
-2. Install dependencies:
+1. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
