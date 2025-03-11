@@ -70,6 +70,31 @@ def find_countries_in_range(df: pd.DataFrame, percentage: float = 10) -> pd.Data
     
     return df[df['Trade Value'] >= threshold].sort_values('Trade Value', ascending=False)
 
+def identify_stable_exporters(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Identify countries whose export values fall within one standard deviation of the mean.
+    
+    Args:
+        df (pd.DataFrame): Input dataframe
+        
+    Returns:
+        pd.DataFrame: DataFrame with stability metrics
+    """
+    mean_value = df['Trade Value'].mean()
+    std_value = df['Trade Value'].std()
+    
+    lower_bound = mean_value - std_value
+    upper_bound = mean_value + std_value
+    
+    # Calculate how close each country is to the mean (stability score)
+    df_stable = df.copy()
+    df_stable['Deviation_From_Mean'] = abs(df_stable['Trade Value'] - mean_value)
+    df_stable['Within_Stable_Range'] = (df_stable['Trade Value'] >= lower_bound) & \
+                                     (df_stable['Trade Value'] <= upper_bound)
+    
+    # Sort by deviation from mean to get most stable countries
+    return df_stable.sort_values('Deviation_From_Mean')
+
 def create_visualizations(df: pd.DataFrame, output_dir: str = 'output'):
     """
     Create and save visualizations of the data.
@@ -107,6 +132,30 @@ def create_visualizations(df: pd.DataFrame, output_dir: str = 'output'):
     plt.tight_layout()
     plt.savefig(f'{output_dir}/export_values_distribution.png', dpi=300, bbox_inches='tight')
     plt.close()
+    
+    # Create stability analysis plot
+    plt.figure(figsize=(12, 6))
+    stable_df = identify_stable_exporters(df)
+    mean_value = df['Trade Value'].mean() / 1e9
+    std_value = df['Trade Value'].std() / 1e9
+    
+    # Create scatter plot with stability bounds
+    plt.scatter(stable_df['Country'], stable_df['Trade Value (Billions)'],
+               c=stable_df['Within_Stable_Range'].map({True: 'green', False: 'red'}),
+               alpha=0.6)
+    
+    plt.axhline(y=mean_value, color='blue', linestyle='--', label='Mean')
+    plt.axhline(y=mean_value + std_value, color='gray', linestyle=':', label='±1 Std Dev')
+    plt.axhline(y=mean_value - std_value, color='gray', linestyle=':')
+    
+    plt.xticks(rotation=45, ha='right')
+    plt.title('Export Value Stability Analysis')
+    plt.ylabel('Trade Value (Billions USD)')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.savefig(f'{output_dir}/stability_analysis.png', dpi=300, bbox_inches='tight')
+    plt.close()
 
 def main():
     # Configuration
@@ -136,6 +185,18 @@ def main():
     for _, row in top_exporters.iterrows():
         trade_value_billions = row['Trade Value'] / 1e9
         print(f"{row['Country']:15} {row['ISO 3']:8} {trade_value_billions:>25,.2f}")
+    
+    # Analyze stability
+    stable_exporters = identify_stable_exporters(df)
+    print("\nStable Exporters (within one standard deviation of mean):")
+    print("-" * 70)
+    print(f"{'Country':15} {'ISO 3':8} {'Trade Value (B USD)':>20} {'Within Range':>15}")
+    print("-" * 70)
+    
+    for _, row in stable_exporters.iterrows():
+        trade_value_billions = row['Trade Value'] / 1e9
+        stability_status = "✓" if row['Within_Stable_Range'] else "✗"
+        print(f"{row['Country']:15} {row['ISO 3']:8} {trade_value_billions:>20,.2f} {stability_status:>15}")
     
     # Create visualizations
     create_visualizations(df)
